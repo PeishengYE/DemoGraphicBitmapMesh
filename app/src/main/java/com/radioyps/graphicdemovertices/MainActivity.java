@@ -2,6 +2,7 @@ package com.radioyps.graphicdemovertices;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 
 import android.content.Context;
@@ -12,7 +13,7 @@ import android.view.*;
 
 
 public class MainActivity extends GraphicsActivity {
-    private final String TAG = "MainActivity";
+    private static final String TAG = "MainActivity";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,12 +40,21 @@ public class MainActivity extends GraphicsActivity {
 
             Bitmap bm = BitmapFactory.decodeResource(getResources(),
                     R.drawable.zoo_kids);
+            if(bm != null ) {
+                Log.d(TAG, "Resource decoded ");
+
+                float w = bm.getWidth();
+                float h = bm.getHeight();
+                Log.d(TAG, "Resource decoded width = " + w + ", height = " + h);
+            }else
+                Log.d(TAG, "Resource not decoded ");
             Shader s = new BitmapShader(bm, Shader.TileMode.CLAMP,
                     Shader.TileMode.CLAMP);
             mPaint.setShader(s);
 
             float w = bm.getWidth();
             float h = bm.getHeight();
+            Log.d(TAG, "Resource decoded width = " + w+ ", height = " + h);
             // construct our mesh
             setXY(mTexs, 0, w/2, h/2);
             setXY(mTexs, 1, 0, 0);
@@ -64,6 +74,7 @@ public class MainActivity extends GraphicsActivity {
         }
 
         @Override protected void onDraw(Canvas canvas) {
+            Log.d(TAG, " onDraw() >> ");
             canvas.drawColor(0xFFCCCCCC);
             canvas.save();
             canvas.concat(mMatrix);
@@ -82,6 +93,7 @@ public class MainActivity extends GraphicsActivity {
             float[] pt = { event.getX(), event.getY() };
             mInverse.mapPoints(pt);
             setXY(mVerts, 0, pt[0], pt[1]);
+            Log.d(TAG, "onTouchEvent()>> ");
             invalidate();
             return true;
         }
