@@ -21,10 +21,13 @@ public class MainActivity extends GraphicsActivity {
     }
 
     private static class SampleView extends View {
-        private final Paint mPaint = new Paint();
-        private final float[] mVerts = new float[10];
-        private final float[] mTexs = new float[10];
-        private final short[] mIndices = { 0, 1, 2, 3, 4, 1 };
+        private static final int WIDTH = 20;
+        private static final int HEIGHT = 20;
+        private static final int COUNT = (WIDTH + 1) * (HEIGHT + 1);
+
+        private final Bitmap mBitmap;
+        private final float[] mVerts = new float[COUNT*2];
+        private final float[] mOrig = new float[COUNT*2];
 
         private final Matrix mMatrix = new Matrix();
         private final Matrix mInverse = new Matrix();
@@ -38,66 +41,78 @@ public class MainActivity extends GraphicsActivity {
             super(context);
             setFocusable(true);
 
-            Bitmap bm = BitmapFactory.decodeResource(getResources(),
-                    R.drawable.zoo_kids);
-            if(bm != null ) {
-                Log.d(TAG, "Resource decoded ");
+            mBitmap = BitmapFactory.decodeResource(getResources(),
+                    R.drawable.zoo_kids_800);
 
-                float w = bm.getWidth();
-                float h = bm.getHeight();
-                Log.d(TAG, "Resource decoded width = " + w + ", height = " + h);
-            }else
-                Log.d(TAG, "Resource not decoded ");
-            Shader s = new BitmapShader(bm, Shader.TileMode.CLAMP,
-                    Shader.TileMode.CLAMP);
-            mPaint.setShader(s);
-
-            float w = bm.getWidth();
-            float h = bm.getHeight();
-            Log.d(TAG, "Resource decoded width = " + w+ ", height = " + h);
+            float w = mBitmap.getWidth();
+            float h = mBitmap.getHeight();
             // construct our mesh
-            setXY(mTexs, 0, w/2, h/2);
-            setXY(mTexs, 1, 0, 0);
-            setXY(mTexs, 2, w, 0);
-            setXY(mTexs, 3, w, h);
-            setXY(mTexs, 4, 0, h);
+            int index = 0;
+            for (int y = 0; y <= HEIGHT; y++) {
+                float fy = h * y / HEIGHT;
+                for (int x = 0; x <= WIDTH; x++) {
+                    float fx = w * x / WIDTH;
+                    setXY(mVerts, index, fx, fy);
+                    setXY(mOrig, index, fx, fy);
+                    index += 1;
+                }
+            }
 
-            setXY(mVerts, 0, w/2, h/2);
-            setXY(mVerts, 1, 0, 0);
-            setXY(mVerts, 2, w, 0);
-            setXY(mVerts, 3, w, h);
-            setXY(mVerts, 4, 0, h);
-
-            mMatrix.setScale(0.8f, 0.8f);
-            mMatrix.preTranslate(20, 20);
+            mMatrix.setTranslate(10, 10);
             mMatrix.invert(mInverse);
         }
 
         @Override protected void onDraw(Canvas canvas) {
-            Log.d(TAG, " onDraw() >> ");
             canvas.drawColor(0xFFCCCCCC);
-            canvas.save();
+
             canvas.concat(mMatrix);
-
-            canvas.drawVertices(Canvas.VertexMode.TRIANGLE_FAN, 10, mVerts, 0,
-                    mTexs, 0, null, 0, null, 0, 0, mPaint);
-
-            canvas.translate(0, 240);
-            canvas.drawVertices(Canvas.VertexMode.TRIANGLE_FAN, 10, mVerts, 0,
-                    mTexs, 0, null, 0, mIndices, 0, 6, mPaint);
-
-            canvas.restore();
+            canvas.drawBitmapMesh(mBitmap, WIDTH, HEIGHT, mVerts, 0,
+                    null, 0, null);
         }
+
+        private void warp(float cx, float cy) {
+            final float K = 10000;
+            float[] src = mOrig;
+            float[] dst = mVerts;
+            for (int i = 0; i < COUNT*2; i += 2) {
+                float x = src[i+0];
+                float y = src[i+1];
+                float dx = cx - x;
+                float dy = cy - y;
+                float dd = dx*dx + dy*dy;
+                float d = (float) Math.sqrt(dd);
+                float pull = K / (dd + 0.000001f);
+
+                pull /= (d + 0.000001f);
+                //   android.util.Log.d("skia", "index " + i + " dist=" + d + " pull=" + pull);
+
+                if (pull >= 1) {
+                    dst[i+0] = cx;
+                    dst[i+1] = cy;
+                } else {
+                    dst[i+0] = x + dx * pull;
+                    dst[i+1] = y + dy * pull;
+                }
+            }
+        }
+
+        private int mLastWarpX = -9999; // don't match a touch coordinate
+        private int mLastWarpY;
 
         @Override public boolean onTouchEvent(MotionEvent event) {
             float[] pt = { event.getX(), event.getY() };
             mInverse.mapPoints(pt);
-            setXY(mVerts, 0, pt[0], pt[1]);
-            Log.d(TAG, "onTouchEvent()>> ");
-            invalidate();
+
+            int x = (int)pt[0];
+            int y = (int)pt[1];
+            if (mLastWarpX != x || mLastWarpY != y) {
+                mLastWarpX = x;
+                mLastWarpY = y;
+                warp(pt[0], pt[1]);
+                invalidate();
+            }
             return true;
         }
-
     }
 
 }
